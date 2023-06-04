@@ -6,7 +6,7 @@ https://github.com/sdhibit/packer-proxmox-templates
 https://github.com/NatiSayada/k3s-proxmox-terraform-ansible
 
 ## Deploy using make commands
-*---TODO add details to each command---*
+*---TODO add details to each command TODO---*
 
 If you are using linux you can deploy the stack following these steps, the only prerequisite is to have docker installed.
 
