@@ -1,0 +1,127 @@
+---
+- name: test kubeconfig path
+  stat:
+    path: ~/.kube/config
+  register: kubeconfig_path
+
+- name: replace host ip address in the kubeconfig
+  replace:
+    path: ~/.kube/config
+    regexp: "https://127.0.0.1:6443"
+    replace: "https://{{ master_ip }}:6443"
+  when: kubeconfig_path and copy_kubeconfig
+
+- name: Change k3s.yaml permissions to 644
+  file:
+    path: ~/.kube/config
+    mode: "600"
+
+- name: check if helm is installed /usr/local/bin/helm
+  stat:
+    path: $HOME/.config/helm/repositories.yaml
+  register: helm_check
+
+- name: check if helm is installed macosx
+  stat:
+    path: /opt/homebrew/bin/helm
+  register: helm_check_osx
+
+- name: Install homebrew packages
+  community.general.homebrew:
+    name: [
+      'kubectl',
+      'kubectx',
+      'kubernetes-cli',
+      'kubernetes-helm',
+      'kubeseal',
+    ]
+    state: present
+    update_homebrew: yes
+  when: not helm_check_osx.stat.exists and ansible_distribution == 'MacOSX'
+
+- name: Download get-helm-3
+  get_url:
+    url: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+    dest: ~/get-helm-3.sh
+    mode: "700"
+  when: not helm_check.stat.exists and ansible_distribution != 'MacOSX' and  ansible_distribution != 'OtherLinux'
+
+- name: install helm if not exist
+  command: >-
+    ~/get-helm-3.sh
+  when: not helm_check.stat.exists and ansible_distribution != 'MacOSX' and  ansible_distribution != 'OtherLinux'
+  changed_when: true
+
+- name: Create metallb l2pool file
+  template:
+    src: metallbpool.yaml.j2
+    dest: roles/postconfig/localhost/tasks/metallb/installation/l2pool.yaml
+  when: metallb    
+
+- name: Install metallb
+  shell: |
+    kubectl create namespace metallb-system
+    kubectl apply -n metallb-system -f https://raw.githubusercontent.com/metallb/metallb/{{ metallb_version }}/config/manifests/metallb-native.yaml
+    kubectl -n metallb-system wait pod --all --timeout=90s --for=condition=Ready
+    kubectl -n metallb-system wait deploy controller --timeout=90s --for=condition=Available
+    kubectl -n metallb-system wait apiservice v1beta1.metallb.io --timeout=90s --for=condition=Available
+    kubectl apply -f roles/postconfig/localhost/tasks/metallb/installation/l2pool.yaml
+  when: metallb
+
+- name: Install argocd
+  shell: |
+    kubectl create namespace argocd
+    kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+    kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "{{ argocd_service_type }}"}}'
+  when: argocd
+
+- name: Create argocd ingress file
+  template:
+    src: argoingress.yaml.j2
+    dest: roles/postconfig/localhost/tasks/argocd/installation/ingress.yaml
+  when: argocdingress  
+  tags:
+    - argorepo
+
+- name: Install argocd with ingress
+  shell: |
+    kubectl create namespace argocd
+    kubectl apply -k roles/postconfig/localhost/tasks/argocd/installation
+  when: argocdingress
+
+- name: Install Sealed Secrets
+  shell: |
+    kubectl apply -f https://github.com/bitnami-labs/sealed-secrets/releases/download/{{ sealed_secrets_version }}/controller.yaml
+
+- name: Create git repo secret for argocd
+  template:
+    src: gitrepoargo.yaml.j2
+    dest: ../unsealed-secrets/gitrepoargo.yaml
+  tags:
+    - argorepo
+
+- name: Check if gitrepoargo.yaml is present
+  stat:
+    path: ../unsealed-secrets/gitrepoargo.yaml
+  register: gitrepo_check
+  tags:
+    - stackapps
+
+- name: Add repo to argocd #be sure to have the file gitrepoargo.yaml
+  shell: |  
+    kubeseal <../unsealed-secrets/gitrepoargo.yaml > ../secrets/gitreapoargosealed.yaml --format yaml
+    kubectl create -f ../secrets/gitreapoargosealed.yaml
+  when: gitrepo_check.stat.exists
+
+- name: Create applicationset for argocd
+  template:
+    src: stackapps.yaml.j2
+    dest: ../bootstrap/stackapps.yaml
+  when: gitrepo_check.stat.exists
+  tags:
+    - stackapps
+
+- name: Install apps
+  shell: |
+    kubectl apply -f ../bootstrap/stackapps.yaml
+  when: gitrepo_check.stat.exists

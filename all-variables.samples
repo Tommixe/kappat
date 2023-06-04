@@ -1,0 +1,81 @@
+#Packer Ubuntu 22.04.01
+#./packer-proxmox-templates/ubuntu-22.04.01-amd64/variables.auto.pkrvars.hcl
+#packer-start
+proxmox_host = "192.168.0.2" #Proxmox node ip
+proxmox_api_token_id = "root@pam!packer"
+proxmox_api_token_secret = "proxmox_api_token"
+proxmox_skip_verify_tls = "true"
+proxmox_node = "mox"
+template_vm_id = 880
+template_name = "ubuntu-22.04.1-base"
+template_description = "Base template for Ubuntu 22.04.1"
+disk_storage_pool = "local-thin" 
+disk_storage_pool_type  = "lvm-thin"
+disk_size = "8G"
+disk_format = "qcow2"
+disk_type = "virtio"
+memory = 1412
+cores = 2
+sockets = 1
+iso_url = "https://releases.ubuntu.com/22.04.1/ubuntu-22.04.1-live-server-amd64.iso"
+iso_storage_pool = "hd1"
+#iso_file = "hd1:iso/ubuntu-22.04.1-live-server-amd64.iso"
+iso_checksum = "10f19c5b2b8d6db711582e0e27f5116296c34fe4b313ba45f9b201a5007056cb"
+network_bridge = "vmbr0"
+keyboard_layout = "it"
+timezone = "Europe/Rome"
+#packer-end
+
+#Terraform
+#./k3s-proxmox-terraform-ansible/terraform/variables.tfvars
+#terraform-start
+pm_host = "192.168.0.2"
+pm_node_name = "pve"
+proxmox_api_token_id = "root@pam!packer"
+proxmox_api_token_secret = "proxmox_api_token"
+pm_tls_insecure = true
+pvt_key = "~/.ssh/kappat"
+num_k3s_masters = 1
+num_k3s_masters_mem = 2048
+master_cores = 1
+master_sockets = 2
+num_k3s_nodes = 2
+num_k3s_nodes_mem = 2048
+node_cores = 1
+node_sockets = 2
+tamplate_vm_name = "ubuntu-22.04.1-base"
+master_ips = [
+  "192.168.0.10"
+]
+worker_ips = [
+  "192.168.0.11",
+  "192.168.0.12"
+]
+gateway = "192.168.0.1"
+admin_username = "your_user"
+admin_password = "your_pwd"
+admin_public_ssh_keys = ["kappatpublickey"]
+#terraform-end
+
+#Ansible
+#./k3s-proxmox-terraform-ansible/inventory/my-cluster/group_vars/all.yml
+#ansible-start
+k3s_version: v1.26.0+k3s1
+ansible_user: your_user
+systemd_dir: /etc/systemd/system
+master_ip: "{{ hostvars[groups['master'][0]]['ansible_host'] | default(groups['master'][0]) }}"
+extra_server_args: "--write-kubeconfig-mode=644"
+extra_agent_args: ""
+copy_kubeconfig: true
+metallb: true
+metallb_version: "v0.13.7"
+metallb_range: 192.168.0.15-192.168.0.18
+argocd: false
+argocd_service_type: LoadBalancer
+argocdingress: true
+argocdhostname: argocd.yourlocal.domain
+dns_servers: []
+sealed_secrets_version: "v0.19.5"
+gitrepourl: https://github.com/Tommixe/kappat.git
+gitrepouser: youruser
+#ansible-end

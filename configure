@@ -1,0 +1,67 @@
+#!/usr/bin/env python
+
+# WIP
+# TODO clean this up
+
+"""
+Configure script for copying all variables to the right place
+"""
+
+import fileinput
+import subprocess
+import sys
+from pathlib import Path
+
+def find_and_replace(pattern: str, replacement: str, paths: list[str]) -> None:
+    files_with_matches = subprocess.run(
+        ["git", "grep", "--files-with-matches", pattern, "--"] + paths,
+        capture_output=True,
+        text=True
+    ).stdout.splitlines()
+
+    for file_with_maches in files_with_matches:
+        with fileinput.FileInput(file_with_maches, inplace=True) as file:
+            for line in file:
+                print(line.replace(pattern, replacement), end='')
+
+
+def create_variables_files(pathallvariablefile: str, pathfiletobecreated: str, searchquerystart: str, searchqueryend: str) -> None:
+    with open(pathallvariablefile, "r") as file_1:
+        lines = file_1.readlines()
+        for i, line in enumerate(lines):
+            if  searchquerystart in line:
+                packerstart = i
+            if searchqueryend in line:    
+                packerend = i
+
+    with open(pathallvariablefile, "r") as file_1, open(pathfiletobecreated, "w") as file_2:
+         for line in file_1.readlines()[packerstart+1:packerend]:
+            file_2.write(line)
+
+pathallvariablefile= 'all-variables'
+searchquerystart = 'packer-star'
+searchqueryend = 'packer-end'
+pathfiletobecreated = './packer-proxmox-templates/ubuntu-22.04.01-amd64/variables.auto.pkrvars.hcl'
+
+create_variables_files(pathallvariablefile, pathfiletobecreated, searchquerystart, searchqueryend )
+
+
+searchquerystart = 'terraform-star'
+searchqueryend = 'terraform-end'
+pathfiletobecreated = './k3s-proxmox-terraform-ansible/terraform/variables.tfvars'
+sshpublickeypath = str(Path.home()) +'/.ssh/kappat.pub'
+
+create_variables_files(pathallvariablefile, pathfiletobecreated, searchquerystart, searchqueryend )
+with open(sshpublickeypath, "r") as keyfile:
+    sshpublickey = keyfile.read().replace('\n', '')
+with fileinput.FileInput(pathfiletobecreated, inplace=True) as file:
+            for line in file:
+                print(line.replace("kappatpublickey", sshpublickey), end='')
+
+
+
+searchquerystart = 'ansible-star'
+searchqueryend = 'ansible-end'
+pathfiletobecreated = './k3s-proxmox-terraform-ansible/inventory/my-cluster/group_vars/all.yml'
+
+create_variables_files(pathallvariablefile, pathfiletobecreated, searchquerystart, searchqueryend )

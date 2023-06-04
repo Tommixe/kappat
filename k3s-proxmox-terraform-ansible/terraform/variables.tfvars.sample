@@ -1,0 +1,27 @@
+pm_host = "192.168.3.110"
+#pm_password = "password"
+pm_node_name = "pve"
+proxmox_api_token_id = "root@pam!packer"
+proxmox_api_token_secret = "proxmox_api_token"
+pm_tls_insecure = true
+pvt_key = "~/.ssh/proxk3s"
+num_k3s_masters = 1
+num_k3s_masters_mem = 2048
+master_cores = 1
+master_sockets = 2
+num_k3s_nodes = 2
+num_k3s_nodes_mem = 2048
+node_cores = 1
+node_sockets = 2
+tamplate_vm_name = "ubuntu-22.04.1-base"
+master_ips = [
+  "192.168.3.81"
+]
+worker_ips = [
+  "192.168.3.91",
+  "192.168.3.92",
+]
+gateway = "192.168.3.1"
+admin_username = "user"
+admin_password = "password"
+admin_public_ssh_keys = [ "ssh-ed25519 AAAAAHHHHHJKKKLLLNKJLJ8yhhi9hKkhiy&GHIJJOJJPJPJP user@domain.com" ]

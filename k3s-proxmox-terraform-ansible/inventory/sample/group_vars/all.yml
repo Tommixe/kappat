@@ -1,0 +1,18 @@
+k3s_version: v1.26.0+k3s1
+ansible_user: debian
+systemd_dir: /etc/systemd/system
+master_ip: "{{ hostvars[groups['master'][0]]['ansible_host'] | default(groups['master'][0]) }}"
+extra_server_args: "--write-kubeconfig-mode=644"
+extra_agent_args: ""
+copy_kubeconfig: true
+metallb: true
+metallb_version: "v0.13.7"
+metallb_range: 192.168.3.93-192.168.3.94
+argocd: false
+argocd_service_type: LoadBalancer
+argocdingress: true
+argocdhostname: argocd.mydomain.com
+dns_servers: []
+sealed_secrets_version: "v0.19.5"
+gitrepourl:
+gitrepouser:
